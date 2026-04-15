@@ -48,6 +48,7 @@ SMTP (smtplib)
 ▶️ Start
 pip install tinkerforge
 python main.py
+
 🔒 Sicherheit
 Verwendung von Gmail App-Passwort
 Thread-safe Zugriff auf Systemzustand

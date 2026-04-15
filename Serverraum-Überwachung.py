@@ -261,20 +261,22 @@ def cb_nfc_reader_state_changed(reader_state, idle):
         global nfc_letzter_scan
         jetzt = time.time()
         if jetzt - nfc_letzter_scan < 2.0:
+            nfc_bricklet.reader_request_tag_id()  # Trotzdem neu starten
             return
         nfc_letzter_scan = jetzt
 
         with lock:
             aktueller_zustand = state["zustand"]
             if aktueller_zustand in ("KRITISCH", "WARNUNG"):
-                # Bei Alarm-Zustand → Alarm quittieren
                 state["alarm"]           = False
                 state["alarm_quittiert"] = True
                 print(f"  [NFC] Alarm quittiert (Zustand war: {aktueller_zustand})")
             else:
-                # Bei OK → System aktivieren/deaktivieren
                 state["aktiv"] = not state["aktiv"]
                 print(f"  [NFC] System {'AKTIVIERT' if state['aktiv'] else 'DEAKTIVIERT'}")
+
+        # Nach Aktion sofort wieder neuen Scan starten
+        nfc_bricklet.reader_request_tag_id()
 
     elif reader_state == BrickletNFC.READER_STATE_REQUEST_TAG_ID_ERROR:
         # Kein Tag gefunden → sofort erneut suchen

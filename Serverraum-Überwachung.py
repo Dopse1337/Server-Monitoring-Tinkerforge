@@ -23,6 +23,8 @@ Aktoren:
 Voraussetzung: pip install tinkerforge
 """
 
+import requests
+import json
 import time
 import threading
 import smtplib
@@ -78,7 +80,10 @@ POLL_INTERVAL = 2.0   # Sekunden zwischen Sensor-Abfragen
 MUTE          = False # True = Piezo dauerhaft stumm (für Tests)
 
 # E-Mail Konfiguration
-EMAIL_AN         = "eliaskramer3@gmail.com"   # Empfänger-Adresse
+EMAIL_AN = [          # Empfänger-Adressen (Liste, da mehrere möglich)
+    "eliaskramer3@gmail.com",
+    "vincent.bruegge1@gmail.com"
+]   
 EMAIL_VON        = "forgetinker@gmail.com"    # Absender-Adresse (Gmail)
 EMAIL_PASSWORT   = "sffdrmrvdfyoxqnc"         # Gmail App-Passwort (nicht das normale Passwort!)
 SMTP_SERVER      = "smtp.gmail.com"           # Gmail SMTP-Server
@@ -180,7 +185,7 @@ def sende_alarm_email(snap):
         # E-Mail-Objekt erstellen
         msg            = MIMEText(inhalt, "plain", "utf-8")
         msg["From"]    = EMAIL_VON
-        msg["To"]      = EMAIL_AN
+        msg["To"]      = ", ".join(EMAIL_AN)  # Mehrere Empfänger durch Komma trennen
         msg["Subject"] = betreff
 
         # SMTP-Verbindung aufbauen, TLS aktivieren, einloggen und senden

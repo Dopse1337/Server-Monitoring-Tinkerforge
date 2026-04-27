@@ -23,8 +23,6 @@ Aktoren:
 Voraussetzung: pip install tinkerforge
 """
 
-import requests
-import json
 import time
 import threading
 import smtplib
@@ -80,10 +78,10 @@ POLL_INTERVAL = 2.0   # Sekunden zwischen Sensor-Abfragen
 MUTE          = False # True = Piezo dauerhaft stumm (für Tests)
 
 # E-Mail Konfiguration
-EMAIL_AN = [          # Empfänger-Adressen (Liste, da mehrere möglich)
+EMAIL_AN = [                              # Empfänger-Adressen (Liste, da mehrere möglich)
     "eliaskramer3@gmail.com",
     "vincent.bruegge1@gmail.com"
-]   
+]
 EMAIL_VON        = "forgetinker@gmail.com"    # Absender-Adresse (Gmail)
 EMAIL_PASSWORT   = "sffdrmrvdfyoxqnc"         # Gmail App-Passwort (nicht das normale Passwort!)
 SMTP_SERVER      = "smtp.gmail.com"           # Gmail SMTP-Server
@@ -109,9 +107,9 @@ state = {
     "letzte_email":    0.0,    # Unix-Timestamp der zuletzt gesendeten Mail (Cooldown)
 }
 
-lock = threading.Lock()  # Verhindert gleichzeitigen Schreibzugriff aus mehreren Threads
-nfc_bricklet = None      # Wird in main() gesetzt, damit der NFC-Callback darauf zugreifen kann
-nfc_letzter_scan = 0.0   # Timestamp letzter NFC-Scan (verhindert Doppel-Trigger)
+lock             = threading.Lock()  # Verhindert gleichzeitigen Schreibzugriff aus mehreren Threads
+nfc_bricklet     = None              # Wird in main() gesetzt, damit der NFC-Callback darauf zugreifen kann
+nfc_letzter_scan = 0.0               # Timestamp letzter NFC-Scan (verhindert Doppel-Trigger)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -157,7 +155,7 @@ def sende_alarm_email(snap):
     vergangen = jetzt - snap["letzte_email"]
     if vergangen < EMAIL_COOLDOWN_S:
         verbleibend = int(EMAIL_COOLDOWN_S - vergangen)
-        print(f"  [Email] Cooldown aktiv – naechste Mail in {verbleibend}s moeglich")
+        print(f"  [Email] Cooldown aktiv – nächste Mail in {verbleibend}s")
         return
 
     zeitstempel = time.strftime("%d.%m.%Y %H:%M:%S")
@@ -185,7 +183,7 @@ def sende_alarm_email(snap):
         # E-Mail-Objekt erstellen
         msg            = MIMEText(inhalt, "plain", "utf-8")
         msg["From"]    = EMAIL_VON
-        msg["To"]      = ", ".join(EMAIL_AN)  # Mehrere Empfänger durch Komma trennen
+        msg["To"]      = ", ".join(EMAIL_AN)   # Alle Empfänger im To-Header
         msg["Subject"] = betreff
 
         # SMTP-Verbindung aufbauen, TLS aktivieren, einloggen und senden
@@ -194,16 +192,16 @@ def sende_alarm_email(snap):
             server.starttls()                          # TLS-Verschlüsselung aktivieren
             server.ehlo()
             server.login(EMAIL_VON, EMAIL_PASSWORT)    # Mit App-Passwort einloggen
-            server.sendmail(EMAIL_VON, EMAIL_AN, msg.as_string())
+            server.sendmail(EMAIL_VON, EMAIL_AN, msg.as_string())  # An alle senden
 
-        # Cooldown-Zeitstempel aktualisieren damit nicht sofort wieder eine Mail gesendet wird
+        # Cooldown-Zeitstempel aktualisieren
         with lock:
             state["letzte_email"] = jetzt
 
-        print(f"  [Email] Erfolgreich gesendet an {EMAIL_AN}")
+        print(f"  [Email] Erfolgreich gesendet an {', '.join(EMAIL_AN)}")
 
     except smtplib.SMTPAuthenticationError:
-        print("  [Email] FEHLER: Login fehlgeschlagen – App-Passwort pruefen!")
+        print("  [Email] FEHLER: Login fehlgeschlagen – App-Passwort prüfen!")
     except smtplib.SMTPException as e:
         print(f"  [Email] SMTP-FEHLER: {e}")
     except Exception as e:
@@ -229,7 +227,7 @@ def cb_button_state_changed(button_l, button_r, led_l, led_r):
     """
     Wird aufgerufen wenn sich der Zustand eines der zwei Buttons ändert.
     Linker Button  → Piezo muten/unmuten (Toggle)
-    Rechter Button → Alarm quittieren (Piezo verstummt, LED zeigt Quittierung)
+    Rechter Button → Alarm quittieren
     """
     if button_l == BrickletDualButtonV2.BUTTON_STATE_PRESSED:
         with lock:
@@ -253,20 +251,20 @@ def cb_nfc_reader_state_changed(reader_state, idle):
       3. Tag wurde gefunden → Aktion ausführen, dann zurück zu Schritt 1
 
     Aktionen bei gefundenem Tag:
-      - Alarm aktiv und nicht quittiert → Alarm quittieren
-      - Kein aktiver Alarm              → System an/aus (Toggle)
+      - Zustand KRITISCH oder WARNUNG → Alarm quittieren
+      - Zustand OK                    → System an/aus (Toggle)
     """
+    global nfc_letzter_scan
+
     if reader_state == BrickletNFC.READER_STATE_IDLE:
         # Bricklet ist bereit → neuen Tag-Scan starten
         nfc_bricklet.reader_request_tag_id()
 
     elif reader_state == BrickletNFC.READER_STATE_REQUEST_TAG_ID_READY:
-        # Tag wurde erfolgreich erkannt → Aktion ausführen
         # Cooldown: Mindestens 2 Sekunden zwischen zwei Aktionen (verhindert Doppel-Trigger)
-        global nfc_letzter_scan
         jetzt = time.time()
         if jetzt - nfc_letzter_scan < 2.0:
-            nfc_bricklet.reader_request_tag_id()  # Trotzdem neu starten
+            nfc_bricklet.reader_request_tag_id()
             return
         nfc_letzter_scan = jetzt
 
@@ -306,16 +304,13 @@ def update_piezo(piezo, zustand, quittiert, mute):
     - OK       → Ton aus
     """
     if MUTE or mute or quittiert or zustand == "OK":
-        # Ton ausschalten
         piezo.set_beep(frequency=1000, volume=2,
                        duration=BrickletPiezoSpeakerV2.BEEP_DURATION_OFF)
     elif zustand == "KRITISCH":
-        # Dauerhafter Alarm-Sweep von 800Hz bis 2400Hz
         piezo.set_alarm(start_frequency=800, end_frequency=2400,
                         step_size=200, step_delay=30, volume=2,
                         duration=BrickletPiezoSpeakerV2.ALARM_DURATION_INFINITE)
     elif zustand == "WARNUNG":
-        # Kurzer Warnton
         piezo.set_beep(frequency=1200, volume=2, duration=300)
 
 
@@ -423,7 +418,7 @@ def main():
     # NFC im Reader-Modus starten und ersten Tag-Scan anstoßen
     nfc_bricklet.set_mode(BrickletNFC.MODE_READER)
     nfc_bricklet.register_callback(BrickletNFC.CALLBACK_READER_STATE_CHANGED, cb_nfc_reader_state_changed)
-    nfc_bricklet.reader_request_tag_id()  # Ersten Scan starten
+    nfc_bricklet.reader_request_tag_id()
 
     # LCD Kontrast und Helligkeit setzen
     lcd.set_display_configuration(14, 100, False, True)
@@ -456,9 +451,7 @@ def main():
             neuer_zustand = zustand_berechnen(temp, hum)
 
             with lock:
-                if neuer_zustand == "KRITISCH":
-                    state["alarm"] = True
-                elif neuer_zustand == "WARNUNG":
+                if neuer_zustand in ("KRITISCH", "WARNUNG"):
                     state["alarm"] = True
                 elif neuer_zustand == "OK":
                     # Bei OK: Alarm und Quittierung zurücksetzen

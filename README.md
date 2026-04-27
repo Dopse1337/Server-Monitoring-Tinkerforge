@@ -30,11 +30,18 @@ Python-basiertes Überwachungssystem für Serverräume mit Tinkerforge-Hardware.
 - 7-Segment: Uhrzeit
 - RGB-LED: Systemstatus
 
+## Erforderliche Dateien
+
+Das Skript benötigt folgende Dateien:
+
+- **`final.py`** - Hauptskript (Einstiegspunkt) 🚀
+- **`gui.py`** - GUI-Module (wird von final.py importiert)
+
 ## Installation & Start
 
 ```bash
 pip install tinkerforge
-python main.py
+python final.py
 ```
 
 ## Technologie

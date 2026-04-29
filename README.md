@@ -54,3 +54,7 @@ python final.py
 ## Use Cases
 
 Serverräume • Labore • Technikräume • Smart Monitoring Projekte
+
+---
+
+✨ **Vibecodet in Claude Sonnet 4.6**
